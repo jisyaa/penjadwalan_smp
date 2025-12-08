@@ -1,71 +1,52 @@
-"""
-run_scheduler.py
-
-Runner utama:
-- Baca tabel
-- Bangun sessions dan time slots
-- Ambil konfigurasi GA dari tabel konfigurasi_ag jika ada
-- Generate population awal (atau load dari file preprocessed)
-- Jalankan GA dan tampilkan + simpan jadwal tiap generasi
-"""
-from data_preprocessor import read_tables, build_sessions, build_time_slots, generate_initial_population
-from genetic_algorithm import run_ga
 import os
+from datetime import datetime
+from data_preprocessor import (
+    read_tables, build_sessions, build_time_slots,
+    generate_initial_population, format_schedule,
+    save_schedule_to_db
+)
+from genetic_algorithm import run_ga
 
 def main():
-    print("Membaca tabel dari database...")
-    tables = read_tables()
 
-    print("Membangun sessions...")
-    sessions = build_sessions(tables)
-    print(f"Total sessions: {len(sessions)}")
+    # ====== BACA DATA ======
+    tables=read_tables()
+    sessions=build_sessions(tables)
+    slots=build_time_slots(tables)
 
-    print("Membangun time slots...")
-    time_slots = build_time_slots(tables)
-    print(f"Total time slots: {len(time_slots)}")
+    # ====== BUAT FOLDER RUN ======
+    os.makedirs("results",exist_ok=True)
+    existing=[d for d in os.listdir("results") if d.startswith("run_")]
+    run_no=len(existing)+1
+    run_folder=f"results/run_{run_no:03d}"
+    os.makedirs(run_folder)
 
-    # konfigurasi dari tabel konfigurasi_ag (jika ada)
-    konf = tables.get("konfigurasi_ag")
-    if konf is not None and not konf.empty:
-        row = konf.iloc[0]
-        pop_size = int(row.get("ukuran_populasi", 50))
-        pc = float(row.get("probabilitas_crossover", 0.8))
-        pm = float(row.get("probabilitas_mutasi", 0.1))
-        gens = int(row.get("jumlah_generasi", 50))
+    print(f"Folder hasil: {run_folder}")
+
+    # ====== POPULASI AWAL ======
+    pop=generate_initial_population(sessions, slots, pop_size=30)
+
+    # ====== JALANKAN GA ======
+    best, best_fit = run_ga(pop, sessions, slots, generations=20, run_folder=run_folder)
+
+    # ====== TAMPILKAN JADWAL TERBAIK ======
+    print("\n=== JADWAL TERBAIK ===")
+    schedule=format_schedule(best, sessions)
+
+    for k,rows in schedule.items():
+        print(f"\nKELAS: {rows[0]['nama_kelas']}")
+        for r in rows:
+            print(f"  Waktu {r['id_waktu']} | {r['nama_mapel']} | Guru {r['id_guru']} | Ruang {r['id_ruang']}")
+
+    # ====== TANYA SIMPAN KE DB ======
+    ans=input("\nSimpan jadwal terbaik ke database? (y/n): ").lower()
+    if ans=="y":
+        year=input("Tahun Ajaran (mis: 2024/2025): ")
+        sem=input("Semester (ganjil/genap): ")
+        save_schedule_to_db(best, sessions, year, sem)
+        print("✔ Jadwal tersimpan ke database.")
     else:
-        pop_size = 30
-        pc = 0.8
-        pm = 0.1
-        gens = 20
+        print("❌ Jadwal tidak disimpan.")
 
-    print(f"GA config -> pop_size={pop_size}, crossover_prob={pc}, mutation_prob={pm}, generations={gens}")
-
-    # generate initial population
-    population = generate_initial_population(sessions, time_slots, pop_size=pop_size)
-
-    # create results folder
-    os.makedirs("results", exist_ok=True)
-
-    # jalankan GA (akan mencetak jadwal terbaik tiap generasi)
-    best_chrom, best_fitness = run_ga(
-        population=population,
-        sessions=sessions,
-        time_slots=time_slots,
-        generations=gens,
-        pop_size=pop_size,
-        crossover_prob=pc,
-        mutation_prob=pm,
-        save_csv_dir="results",
-        save_best_to_db=False  # ubah jadi True jika ingin menyimpan setiap generasi ke tabel jadwal
-    )
-
-    print("\n=== GA SELESAI ===")
-    print("Fitness terbaik (final):", best_fitness)
-    # Simpan hasil akhir ke CSV final
-    final_csv = os.path.join("results", f"final_best_fitness_{best_fitness:.4f}.csv")
-    # run_ga sudah menyimpan setiap generasi; jika perlu kita simpan final lagi:
-    # (but run_ga already saved gen files)
-    print("Hasil disimpan di folder 'results'.")
-
-if __name__ == "__main__":
+if __name__=="__main__":
     main()
