@@ -77,36 +77,49 @@ def build_slots(waktu_df):
 
 # ---------- Build sessions for a single class ----------
 def build_sessions_for_class(id_kelas, kelas_row, mapel_df, guru_mapel_df):
-    """
-    Produce sessions list for this class:
-    - For each mapel assigned to this class (guru_mapel aktif), use mapel.jam_per_minggu
-    - if jam_per_minggu > 3 -> split into [3, remainder] (two sessions), set same split_group id for them
-    - else create jam_per_minggu sessions of length 1
-    Return list[Session], expected_total_hours
-    """
     sessions = []
     sid = 1
     split_gid = 1
+
     gm = guru_mapel_df[(guru_mapel_df["id_kelas"]==id_kelas) & (guru_mapel_df["aktif"]=="aktif")]
-    # get unique id_mapel for this class (some mapel may have multiple guru entries)
     mapels = gm["id_mapel"].unique().tolist()
+
     for id_mapel in mapels:
         row = mapel_df.loc[mapel_df["id_mapel"]==id_mapel].iloc[0]
         nama_mapel = row["nama_mapel"]
         jam = int(row["jam_per_minggu"])
-        if jam > 3:
-            # split into two pertemuan: prefer [3, jam-3] (ensures one 3-hour)
-            a = 3
-            b = jam - 3
-            # create two sessions with same split_group
-            sessions.append(Session(sid, id_kelas, kelas_row["nama_kelas"], id_mapel, nama_mapel, a, split_gid)); sid+=1
-            sessions.append(Session(sid, id_kelas, kelas_row["nama_kelas"], id_mapel, nama_mapel, b, split_gid)); sid+=1
+
+        if jam == 3:
+            sessions.append(Session(sid, id_kelas, kelas_row["nama_kelas"], id_mapel, nama_mapel, 3, None))
+            sid += 1
+
+        elif jam == 4:
+            # 2 + 2
+            sessions.append(Session(sid, id_kelas, kelas_row["nama_kelas"], id_mapel, nama_mapel, 2, split_gid)); sid+=1
+            sessions.append(Session(sid, id_kelas, kelas_row["nama_kelas"], id_mapel, nama_mapel, 2, split_gid)); sid+=1
             split_gid += 1
+
+        elif jam == 5:
+            # 3 + 2
+            sessions.append(Session(sid, id_kelas, kelas_row["nama_kelas"], id_mapel, nama_mapel, 3, split_gid)); sid+=1
+            sessions.append(Session(sid, id_kelas, kelas_row["nama_kelas"], id_mapel, nama_mapel, 2, split_gid)); sid+=1
+            split_gid += 1
+
+        elif jam == 6:
+            # 3 + 3
+            sessions.append(Session(sid, id_kelas, kelas_row["nama_kelas"], id_mapel, nama_mapel, 3, split_gid)); sid+=1
+            sessions.append(Session(sid, id_kelas, kelas_row["nama_kelas"], id_mapel, nama_mapel, 3, split_gid)); sid+=1
+            split_gid += 1
+
         else:
+            # fallback (1 jam × jam_per_minggu)
             for _ in range(jam):
-                sessions.append(Session(sid, id_kelas, kelas_row["nama_kelas"], id_mapel, nama_mapel, 1, None)); sid+=1
+                sessions.append(Session(sid, id_kelas, kelas_row["nama_kelas"], id_mapel, nama_mapel, 1, None))
+                sid += 1
+
     expected = sum(s.length for s in sessions)
     return sessions, expected
+
 
 # ---------- Candidates (guru) ----------
 def build_candidates_map(guru_mapel_df):
