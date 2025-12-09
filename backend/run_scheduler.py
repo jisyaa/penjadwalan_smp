@@ -22,7 +22,7 @@ def main():
 
     print("Membangun session blocks dari guru_mapel aktif...")
     blocks = build_session_blocks(tables)
-    print(f"Total session blocks (pertemuan): {len(blocks)}")
+    print(f"Total session blocks: {len(blocks)}")
 
     print("Membangun struktur waktu...")
     waktu_df, id_to_waktu, day_to_slots = build_waktu_structs(tables["waktu"])
@@ -30,11 +30,9 @@ def main():
 
     guru_mapel_active_set = build_guru_mapel_active_set(tables)
 
-    # prepare initial population
     pop_size = 40
     population = generate_initial_population(blocks, id_to_waktu, day_to_slots, pop_size=pop_size)
 
-    # run GA
     run_name = datetime.now().strftime("run_%Y%m%d_%H%M%S")
     best_chrom, best_fit, run_folder = run_ga(
         population=population,
@@ -50,10 +48,8 @@ def main():
         save_csv_dir="results"
     )
 
-    # show final readable schedule with guru names
     print("\n=== JADWAL TERBAIK (final) ===")
     schedule_read = format_schedule_readable(best_chrom, blocks, tables)
-    # map guru id->name
     guru_map = {}
     if "guru" in tables and not tables["guru"].empty:
         for _, r in tables["guru"].iterrows():
@@ -67,7 +63,6 @@ def main():
             gname = guru_map.get(r.get("id_guru"), str(r.get("id_guru")))
             print(f"  {r['hari']} {r['waktu_mulai']}-{r['waktu_selesai']} | {r['nama_mapel']} | Guru: {gname}")
 
-    # ask to save
     ans = input("\nSimpan jadwal terbaik ke database? (y/n): ").strip().lower()
     if ans == "y":
         year = input("Tahun Ajaran (contoh: 2025/2026): ").strip()
@@ -77,7 +72,6 @@ def main():
         print("Folder hasil run:", run_folder)
     else:
         print("Batal simpan. Folder hasil run:", run_folder)
-
 
 if __name__ == "__main__":
     main()

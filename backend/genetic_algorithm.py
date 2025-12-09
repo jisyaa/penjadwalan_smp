@@ -2,16 +2,19 @@
 import random
 import os
 import csv
-from collections import defaultdict, Counter
+from collections import defaultdict
 from typing import List, Dict, Tuple, Any, Set
 
 from data_preprocessor import SessionBlock, format_schedule_readable
 
-# penalty constants (tune as needed)
-P_GURU_CONFLICT = 1000     # very heavy
-P_SLOT_BLOCKED = 800       # very heavy
-P_GURU_NOT_ALLOWED = 1200  # very heavy
-P_EMPTY_GAP = 50           # soft
+# penalties (tweakable)
+P_GURU_CONFLICT = 2000
+P_SLOT_BLOCKED = 1500
+P_GURU_NOT_ALLOWED = 2000
+P_UNASSIGNED_BLOCK = 1500
+P_GAP_MISSING = 2000   # VERY HEAVY — user required all teaching slots filled
+P_SAME_DAY_SPLIT = 1200
+
 BASE_SCORE = 10000
 
 def fitness_function(chromosome: Dict[int, Tuple[int,int]],
@@ -19,91 +22,135 @@ def fitness_function(chromosome: Dict[int, Tuple[int,int]],
                      id_to_waktu: Dict[int, Dict[str, Any]],
                      day_to_slots: Dict[str, List[int]],
                      guru_mapel_active_set: Set[Tuple[int,int,int]]) -> float:
-    """
-    Compute fitness based on constraints:
-      - teacher conflict (hard)
-      - blocked slots cannot be used (hard)
-      - teacher must be allowed for block's mapel/kelas (hard)
-      - no gaps in middle day for each class (soft)
-    """
     block_map = {b.block_id: b for b in blocks}
     penalties = 0
 
-    # A. teacher-time conflict -> build per-slot teacher assignment (expand blocks to slots)
-    teacher_time = defaultdict(list)  # (slot_id, guru) -> list of block_ids
-    class_day_slots = defaultdict(lambda: defaultdict(list))  # kelas -> hari -> list of slot order indices
-
-    # helper: build order_map for day to slot index for gap calculation
-    order_map = {}
+    # helper: mapping slot->(day,index) for gap & ordering
+    day_index = {}
     for day, slots in day_to_slots.items():
         for idx, sid in enumerate(slots):
-            order_map[sid] = (day, idx)
+            day_index[sid] = (day, idx)
+
+    # expand assignments: for each block, compute its occupied slots
+    slot_assignments = defaultdict(list)  # slot_id -> list of (block_id, guru)
+    class_day_filled = defaultdict(lambda: defaultdict(set))  # class -> day -> set(slot indices)
+    block_day_choice = {}  # block_id -> day (to enforce split blocks in different days)
 
     for bid, assign in chromosome.items():
         start_slot, gid = assign
         b = block_map[bid]
         if start_slot is None or gid is None:
-            # heavy penalty for unassigned or missing guru
-            penalties += P_GURU_NOT_ALLOWED
+            penalties += P_UNASSIGNED_BLOCK
             continue
-        # find day and day slots list
         if start_slot not in id_to_waktu:
             penalties += P_SLOT_BLOCKED
             continue
         day = id_to_waktu[start_slot]["hari"]
+        # find day slots list
+        if day not in day_to_slots:
+            penalties += P_SLOT_BLOCKED
+            continue
         day_slots = day_to_slots[day]
-        # find index of start in day_slots
         try:
             idx = day_slots.index(start_slot)
         except ValueError:
             penalties += P_SLOT_BLOCKED
             continue
-        # collect block slot ids
         block_slots = day_slots[idx: idx + b.length]
         if len(block_slots) < b.length:
-            # block doesn't fit (end of day) -> heavy penalty
             penalties += P_SLOT_BLOCKED * 2
             continue
-        # check each slot for blocked keterangan
+        # check none of slots have keterangan or jam_ke is None
         for sid in block_slots:
-            ket = id_to_waktu[sid].get("keterangan")
-            if ket is not None and str(ket).strip() != "":
+            info = id_to_waktu[sid]
+            if info["keterangan"] is not None and str(info["keterangan"]).strip() != "":
                 penalties += P_SLOT_BLOCKED
-            teacher_time[(sid, gid)].append(bid)
-            # register class-day slot order for gaps
-            class_day_slots[b.id_kelas][day].append(order_map[sid][1])
-
-        # E: validate guru_mapel_active_set
+            if info["jam_ke"] is None:
+                penalties += P_SLOT_BLOCKED
+            slot_assignments[sid].append((bid, gid))
+            # register filled index for class/day
+            class_day_filled[b.id_kelas][day].add(day_slots.index(sid))
+        # check guru_mapel_active_set
         key = (int(gid), int(b.id_mapel), int(b.id_kelas))
         if key not in guru_mapel_active_set:
             penalties += P_GURU_NOT_ALLOWED
+        # record day used by block (for split-block check)
+        block_day_choice[bid] = day
 
-    # count teacher conflicts: same guru assigned to same slot more than once
-    # build map (slot -> dict guru->count)
-    slot_guru_counts = defaultdict(lambda: defaultdict(int))
-    for (sid, gid), bids in teacher_time.items():
-        slot_guru_counts[sid][gid] += len(bids)
-    for sid, gdict in slot_guru_counts.items():
-        for gid, cnt in gdict.items():
+    # teacher conflicts: same teacher on same slot in multiple classes
+    for sid, lst in slot_assignments.items():
+        # count per guru
+        per_guru = defaultdict(int)
+        for bid, gid in lst:
+            per_guru[gid] += 1
+        for gid, cnt in per_guru.items():
             if cnt > 1:
                 penalties += P_GURU_CONFLICT * (cnt - 1)
 
-    # C: empty gaps in middle of day for each class
-    for kelas, days in class_day_slots.items():
-        for day, indices in days.items():
-            if not indices:
-                continue
-            indices_sorted = sorted(set(indices))
-            # if there is a gap between min and max that's not filled
-            for i in range(len(indices_sorted)-1):
-                if indices_sorted[i+1] - indices_sorted[i] > 1:
-                    penalties += P_EMPTY_GAP
+    # NO-GAP FULL-DAY: for each class & each day, ALL teaching slots (jam_ke != null and keterangan empty) must be filled
+    # compute required teaching slot indices per day (based on day_to_slots & id_to_waktu)
+    for kelas, days in class_day_filled.items():
+        for day, filled_indices in days.items():
+            # collect required indices for that day
+            required = []
+            slots = day_to_slots[day]
+            for idx, sid in enumerate(slots):
+                info = id_to_waktu[sid]
+                if info["jam_ke"] is None:
+                    continue
+                if info["keterangan"] is not None and str(info["keterangan"]).strip() != "":
+                    continue
+                required.append(idx)
+            # now check difference between required and filled
+            missing = set(required) - set(filled_indices)
+            if missing:
+                penalties += P_GAP_MISSING * len(missing)
 
-    # final normalized fitness
+    # Additionally, a class might have zero filled slots for a day but required slots exist: that is missing as well
+    # check all classes/day combinations
+    # build list of all classes
+    all_classes = set([b.id_kelas for b in blocks])
+    for kelas in all_classes:
+        for day, slots in day_to_slots.items():
+            # determine required indices
+            required = []
+            for idx, sid in enumerate(slots):
+                info = id_to_waktu[sid]
+                if info["jam_ke"] is None:
+                    continue
+                if info["keterangan"] is not None and str(info["keterangan"]).strip() != "":
+                    continue
+                required.append(idx)
+            if not required:
+                continue
+            filled = class_day_filled.get(kelas, {}).get(day, set())
+            missing = set(required) - set(filled)
+            if missing:
+                penalties += P_GAP_MISSING * len(missing)
+
+    # Ensure split-blocks (blocks that originated from same mapel+kls and where that mapel had >3)
+    # We can't directly tell which block pairs came from same original mapel - but we can detect same mapel+kls repeated blocks:
+    # For each mapel+kls with multiple blocks, ensure not on same day.
+    map_blocks = defaultdict(list)
+    for b in blocks:
+        map_blocks[(b.id_kelas, b.id_mapel)].append(b.block_id)
+    for (kelas, mapel), bids in map_blocks.items():
+        if len(bids) <= 1:
+            continue
+        # if there are multiple blocks, their chosen days must be distinct
+        days_used = []
+        for bid in bids:
+            day = block_day_choice.get(bid)
+            if day:
+                days_used.append(day)
+        if len(days_used) != len(set(days_used)):
+            penalties += P_SAME_DAY_SPLIT * (len(days_used) - len(set(days_used)))
+
     score = max(0, BASE_SCORE - penalties)
     return score / BASE_SCORE
 
-# GA operators
+
+# GA ops
 def tournament_selection(pop, fitnesses, k=3):
     idxs = random.sample(range(len(pop)), k)
     best = idxs[0]
@@ -112,50 +159,49 @@ def tournament_selection(pop, fitnesses, k=3):
             best = i
     return pop[best].copy()
 
-def crossover(parent1, parent2, prob=0.8):
+def crossover(p1, p2, prob=0.8):
     if random.random() > prob:
-        return parent1.copy()
-    keys = list(parent1.keys())
+        return p1.copy()
+    keys = list(p1.keys())
     if len(keys) < 2:
-        return parent1.copy()
-    point = random.randint(1, len(keys)-1)
+        return p1.copy()
+    pt = random.randint(1, len(keys)-1)
     child = {}
-    for i, k in enumerate(keys):
-        child[k] = parent1[k] if i < point else parent2[k]
+    for i,k in enumerate(keys):
+        child[k] = p1[k] if i < pt else p2[k]
     return child
 
-def mutation(chromosome, blocks: List[SessionBlock], id_to_waktu: Dict[int, Dict[str, Any]], day_to_slots: Dict[str, List[int]], mut_prob=0.12):
-    # For each block maybe mutate start_slot or guru
+def mutation(chrom, blocks: List[SessionBlock], id_to_waktu: Dict[int, Dict[str, Any]], day_to_slots: Dict[str, List[int]], mut_prob=0.12):
     block_map = {b.block_id: b for b in blocks}
-    for bid in list(chromosome.keys()):
+    for bid in list(chrom.keys()):
         if random.random() < mut_prob:
             b = block_map[bid]
-            # choose mutation type
+            # mutate start_slot or guru
             if random.random() < 0.6:
-                # mutate start_slot: choose a random valid start across days for this block
-                valid_starts = []
+                # find all valid starts
+                valids = []
                 for day, slots in day_to_slots.items():
-                    vs = []
-                    # find contiguous valid starts for length b.length
+                    # find contiguous valid
                     n = len(slots)
                     for i in range(0, n - b.length + 1):
                         block_slots = slots[i:i+b.length]
                         ok = True
                         for sid in block_slots:
-                            ket = id_to_waktu[sid].get("keterangan")
-                            if ket is not None and str(ket).strip() != "" or id_to_waktu[sid].get("jam_ke") is None:
+                            info = id_to_waktu[sid]
+                            if info["keterangan"] is not None and str(info["keterangan"]).strip() != "":
+                                ok = False
+                                break
+                            if info["jam_ke"] is None:
                                 ok = False
                                 break
                         if ok:
-                            vs.append(block_slots[0])
-                    valid_starts.extend(vs)
-                if valid_starts:
-                    chromosome[bid] = (random.choice(valid_starts), chromosome[bid][1])
+                            valids.append(block_slots[0])
+                if valids:
+                    chrom[bid] = (random.choice(valids), chrom[bid][1])
             else:
-                # mutate guru among candidates
                 if b.guru_candidates:
-                    chromosome[bid] = (chromosome[bid][0], random.choice(b.guru_candidates))
-    return chromosome
+                    chrom[bid] = (chrom[bid][0], random.choice(b.guru_candidates))
+    return chrom
 
 def run_ga(population: List[Dict[int, Tuple[int,int]]],
            blocks: List[SessionBlock],
@@ -176,7 +222,6 @@ def run_ga(population: List[Dict[int, Tuple[int,int]]],
     run_folder = os.path.join(save_csv_dir, run_name)
     os.makedirs(run_folder, exist_ok=True)
 
-    # normalize population size
     if len(population) < pop_size:
         while len(population) < pop_size:
             population.append(random.choice(population).copy())
@@ -188,12 +233,11 @@ def run_ga(population: List[Dict[int, Tuple[int,int]]],
         best = population[best_idx]
         best_fit = fitnesses[best_idx]
 
-        # print only fitness
         print(f"Generasi {gen:03d} | Fitness terbaik: {best_fit:.6f}")
 
         # save CSV readable
         schedule_read = format_schedule_readable(best, blocks, tables)
-        # need guru name lookup
+        # guru lookup
         guru_map = {}
         if "guru" in tables and not tables["guru"].empty:
             for _, r in tables["guru"].iterrows():
@@ -207,10 +251,10 @@ def run_ga(population: List[Dict[int, Tuple[int,int]]],
             for id_kelas, rows in schedule_read.items():
                 for r in rows:
                     gid = r.get("id_guru")
-                    gname = guru_map.get(gid, None)
+                    gname = guru_map.get(gid, "")
                     w.writerow([id_kelas, r["nama_kelas"], r["hari"], r["waktu_mulai"], r["waktu_selesai"], r["nama_mapel"], gid, gname, best_fit])
 
-        # evolve population
+        # evolve
         new_pop = []
         while len(new_pop) < pop_size:
             p1 = tournament_selection(population, fitnesses)
@@ -220,7 +264,6 @@ def run_ga(population: List[Dict[int, Tuple[int,int]]],
             new_pop.append(child)
         population = new_pop
 
-    # final best
     final_fits = [fitness_function(ch, blocks, id_to_waktu, day_to_slots, guru_mapel_active_set) for ch in population]
-    final_best_idx = max(range(len(population)), key=lambda i: final_fits[i])
-    return population[final_best_idx], final_fits[final_best_idx], run_folder
+    best_idx = max(range(len(population)), key=lambda i: final_fits[i])
+    return population[best_idx], final_fits[best_idx], run_folder
