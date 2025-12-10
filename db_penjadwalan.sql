@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Dec 09, 2025 at 09:01 AM
+-- Generation Time: Dec 10, 2025 at 11:44 AM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -284,7 +284,26 @@ INSERT INTO `guru_mapel` (`id`, `id_guru`, `id_mapel`, `id_kelas`, `aktif`) VALU
 (187, 34, 7, 6, 'aktif'),
 (188, 23, 8, 6, 'aktif'),
 (189, 28, 9, 6, 'aktif'),
-(190, 22, 10, 6, 'aktif');
+(190, 22, 10, 6, 'aktif'),
+(191, 8, 11, 1, 'aktif'),
+(192, 8, 11, 2, 'aktif'),
+(193, 8, 11, 3, 'aktif'),
+(194, 8, 11, 4, 'aktif'),
+(195, 8, 11, 5, 'aktif'),
+(196, 8, 11, 6, 'aktif'),
+(197, 19, 11, 7, 'aktif'),
+(198, 19, 11, 8, 'aktif'),
+(199, 19, 11, 9, 'aktif'),
+(200, 19, 11, 10, 'aktif'),
+(201, 8, 11, 11, 'aktif'),
+(202, 8, 11, 12, 'aktif'),
+(203, 8, 11, 13, 'aktif'),
+(204, 24, 11, 14, 'aktif'),
+(205, 24, 11, 15, 'aktif'),
+(206, 24, 11, 16, 'aktif'),
+(207, 24, 11, 17, 'aktif'),
+(208, 24, 11, 18, 'aktif'),
+(209, 24, 11, 19, 'aktif');
 
 -- --------------------------------------------------------
 
@@ -298,10 +317,7 @@ CREATE TABLE `jadwal` (
   `id_kelas` int(11) DEFAULT NULL,
   `id_mapel` int(11) DEFAULT NULL,
   `id_guru` int(11) DEFAULT NULL,
-  `id_ruang` int(11) DEFAULT NULL,
-  `id_waktu` int(11) DEFAULT NULL,
-  `generasi` int(11) DEFAULT NULL,
-  `fitness` float DEFAULT NULL
+  `id_waktu` int(11) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
@@ -415,7 +431,8 @@ INSERT INTO `mapel` (`id_mapel`, `nama_mapel`, `jam_per_minggu`, `kategori`) VAL
 (7, 'Pendidikan Pancasila', 3, 'Teori'),
 (8, 'PJOK', 3, 'Praktek'),
 (9, 'Seni Budaya dan Prakarya', 3, 'Teori'),
-(10, 'Informatika', 3, 'Teori');
+(10, 'Informatika', 3, 'Teori'),
+(11, 'BK', 1, 'Teori');
 
 -- --------------------------------------------------------
 
@@ -486,61 +503,63 @@ CREATE TABLE `waktu` (
 --
 
 INSERT INTO `waktu` (`id_waktu`, `hari`, `jam_ke`, `waktu_mulai`, `waktu_selesai`, `keterangan`) VALUES
-(1, 'Senin', 1, '07:15:00', '08:10:00', 'Upacara'),
-(2, 'Senin', 2, '08:10:00', '08:50:00', ''),
-(3, 'Senin', 3, '08:50:00', '09:30:00', ''),
-(4, 'Senin', 4, '09:30:00', '10:10:00', ''),
-(5, 'Senin', NULL, '10:10:00', '10:30:00', 'Istirahat'),
-(6, 'Senin', 5, '10:30:00', '11:10:00', ''),
-(7, 'Senin', 6, '11:10:00', '11:50:00', ''),
-(8, 'Senin', 7, '11:50:00', '12:30:00', ''),
-(9, 'Senin', NULL, '12:30:00', '13:10:00', 'Ishoma'),
-(10, 'Senin', 8, '13:10:00', '13:50:00', ''),
-(11, 'Senin', 9, '13:50:00', '14:30:00', ''),
-(12, 'Senin', 10, '14:30:00', '15:10:00', ''),
-(13, 'Selasa', 1, '07:15:00', '08:10:00', 'Literasi'),
-(14, 'Selasa', 2, '08:10:00', '08:50:00', ''),
-(15, 'Selasa', 3, '08:50:00', '09:30:00', ''),
-(16, 'Selasa', 4, '09:30:00', '10:10:00', ''),
-(17, 'Selasa', NULL, '10:10:00', '10:30:00', 'Istirahat'),
-(18, 'Selasa', 5, '10:30:00', '11:10:00', ''),
-(19, 'Selasa', 6, '11:10:00', '11:50:00', ''),
-(20, 'Selasa', 7, '11:50:00', '12:30:00', ''),
-(21, 'Selasa', NULL, '12:30:00', '13:10:00', 'Ishoma'),
-(22, 'Selasa', 8, '13:10:00', '13:50:00', ''),
-(23, 'Selasa', 9, '13:50:00', '14:30:00', ''),
-(24, 'Selasa', 10, '14:30:00', '16:00:00', 'Ekstrakulikuler'),
-(25, 'Rabu', 1, '07:15:00', '08:10:00', 'Tahfidz'),
-(26, 'Rabu', 2, '08:10:00', '08:50:00', ''),
-(27, 'Rabu', 3, '08:50:00', '09:30:00', ''),
-(28, 'Rabu', 4, '09:30:00', '10:10:00', ''),
-(29, 'Rabu', NULL, '10:10:00', '10:30:00', 'Istirahat'),
-(30, 'Rabu', 5, '10:30:00', '11:10:00', ''),
-(31, 'Rabu', 6, '11:10:00', '11:50:00', ''),
-(32, 'Rabu', 7, '11:50:00', '12:30:00', ''),
-(33, 'Rabu', NULL, '12:30:00', '13:10:00', 'Ishoma'),
-(34, 'Rabu', 8, '13:10:00', '13:50:00', ''),
-(35, 'Rabu', 9, '13:50:00', '14:30:00', ''),
-(36, 'Rabu', 10, '14:30:00', '16:00:00', 'Ekstrakulikuler'),
-(37, 'Kamis', 1, '07:15:00', '08:10:00', 'Literasi'),
-(38, 'Kamis', 2, '08:10:00', '08:50:00', ''),
-(39, 'Kamis', 3, '08:50:00', '09:30:00', ''),
-(40, 'Kamis', 4, '09:30:00', '10:10:00', ''),
-(41, 'Kamis', NULL, '10:10:00', '10:30:00', 'Istirahat'),
-(42, 'Kamis', 5, '10:30:00', '11:10:00', ''),
-(43, 'Kamis', 6, '11:10:00', '11:50:00', ''),
-(44, 'Kamis', 7, '11:50:00', '12:30:00', ''),
-(45, 'Kamis', NULL, '12:30:00', '13:10:00', 'Ishoma'),
-(46, 'Kamis', 8, '13:10:00', '13:50:00', ''),
-(47, 'Kamis', 9, '13:50:00', '14:30:00', ''),
-(48, 'Kamis', 10, '14:30:00', '16:00:00', 'Ekstrakulikuler'),
-(49, 'Jumat', 1, '07:15:00', '08:00:00', 'Muhadharah'),
-(50, 'Jumat', 2, '08:00:00', '08:40:00', ''),
-(51, 'Jumat', 3, '08:40:00', '09:20:00', ''),
-(52, 'Jumat', 4, '09:20:00', '10:00:00', ''),
-(53, 'Jumat', NULL, '10:00:00', '10:20:00', 'Istirahat'),
-(54, 'Jumat', 5, '10:20:00', '11:00:00', ''),
-(55, 'Jumat', 6, '11:00:00', '11:40:00', '');
+(56, 'Senin', 1, '07:15:00', '08:10:00', 'Upacara'),
+(57, 'Senin', 2, '08:10:00', '08:50:00', ''),
+(58, 'Senin', 3, '08:50:00', '09:30:00', ''),
+(59, 'Senin', 4, '09:30:00', '10:10:00', ''),
+(60, 'Senin', NULL, '10:10:00', '10:30:00', 'Istirahat'),
+(61, 'Senin', 5, '10:30:00', '11:10:00', ''),
+(62, 'Senin', 6, '11:10:00', '11:50:00', ''),
+(63, 'Senin', 7, '11:50:00', '12:30:00', ''),
+(64, 'Senin', NULL, '12:30:00', '13:10:00', 'Ishoma'),
+(65, 'Senin', 8, '13:10:00', '13:50:00', ''),
+(66, 'Senin', 9, '13:50:00', '14:30:00', ''),
+(67, 'Senin', 10, '14:30:00', '15:10:00', ''),
+(68, 'Selasa', NULL, '07:15:00', '07:30:00', 'Literasi'),
+(69, 'Selasa', 1, '07:30:00', '08:10:00', ''),
+(70, 'Selasa', 2, '08:10:00', '08:50:00', ''),
+(71, 'Selasa', 3, '08:50:00', '09:30:00', ''),
+(72, 'Selasa', 4, '09:30:00', '10:10:00', ''),
+(73, 'Selasa', NULL, '10:10:00', '10:30:00', 'Istirahat'),
+(74, 'Selasa', 5, '10:30:00', '11:10:00', ''),
+(75, 'Selasa', 6, '11:10:00', '11:50:00', ''),
+(76, 'Selasa', 7, '11:50:00', '12:30:00', ''),
+(77, 'Selasa', NULL, '12:30:00', '13:10:00', 'Ishoma'),
+(78, 'Selasa', 8, '13:10:00', '13:50:00', ''),
+(79, 'Selasa', 9, '13:50:00', '14:30:00', ''),
+(80, 'Selasa', 10, '14:30:00', '16:00:00', 'Ekstrakulikuler'),
+(81, 'Rabu', 1, '07:15:00', '08:10:00', 'Tahfidz'),
+(82, 'Rabu', 2, '08:10:00', '08:50:00', ''),
+(83, 'Rabu', 3, '08:50:00', '09:30:00', ''),
+(84, 'Rabu', 4, '09:30:00', '10:10:00', ''),
+(85, 'Rabu', NULL, '10:10:00', '10:30:00', 'Istirahat'),
+(86, 'Rabu', 5, '10:30:00', '11:10:00', ''),
+(87, 'Rabu', 6, '11:10:00', '11:50:00', ''),
+(88, 'Rabu', 7, '11:50:00', '12:30:00', ''),
+(89, 'Rabu', NULL, '12:30:00', '13:10:00', 'Ishoma'),
+(90, 'Rabu', 8, '13:10:00', '13:50:00', ''),
+(91, 'Rabu', 9, '13:50:00', '14:30:00', ''),
+(92, 'Rabu', 10, '14:30:00', '16:00:00', 'Ekstrakulikuler'),
+(93, 'Kamis', NULL, '07:15:00', '07:30:00', 'Literasi'),
+(94, 'Kamis', 1, '07:30:00', '08:10:00', ''),
+(95, 'Kamis', 2, '08:10:00', '08:50:00', ''),
+(96, 'Kamis', 3, '08:50:00', '09:30:00', ''),
+(97, 'Kamis', 4, '09:30:00', '10:10:00', ''),
+(98, 'Kamis', NULL, '10:10:00', '10:30:00', 'Istirahat'),
+(99, 'Kamis', 5, '10:30:00', '11:10:00', ''),
+(100, 'Kamis', 6, '11:10:00', '11:50:00', ''),
+(101, 'Kamis', 7, '11:50:00', '12:30:00', ''),
+(102, 'Kamis', NULL, '12:30:00', '13:10:00', 'Ishoma'),
+(103, 'Kamis', 8, '13:10:00', '13:50:00', ''),
+(104, 'Kamis', 9, '13:50:00', '14:30:00', ''),
+(105, 'Kamis', 10, '14:30:00', '16:00:00', 'Ekstrakulikuler'),
+(106, 'Jumat', 1, '07:15:00', '08:00:00', 'Muhadharah'),
+(107, 'Jumat', 2, '08:00:00', '08:40:00', ''),
+(108, 'Jumat', 3, '08:40:00', '09:20:00', ''),
+(109, 'Jumat', 4, '09:20:00', '10:00:00', ''),
+(110, 'Jumat', NULL, '10:00:00', '10:20:00', 'Istirahat'),
+(111, 'Jumat', 5, '10:20:00', '11:00:00', ''),
+(112, 'Jumat', 6, '11:00:00', '11:40:00', '');
 
 --
 -- Indexes for dumped tables
@@ -631,7 +650,7 @@ ALTER TABLE `guru`
 -- AUTO_INCREMENT for table `guru_mapel`
 --
 ALTER TABLE `guru_mapel`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=191;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=210;
 
 --
 -- AUTO_INCREMENT for table `jadwal`
@@ -667,7 +686,7 @@ ALTER TABLE `log_conflict`
 -- AUTO_INCREMENT for table `mapel`
 --
 ALTER TABLE `mapel`
-  MODIFY `id_mapel` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
+  MODIFY `id_mapel` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=12;
 
 --
 -- AUTO_INCREMENT for table `ruang`
@@ -679,7 +698,7 @@ ALTER TABLE `ruang`
 -- AUTO_INCREMENT for table `waktu`
 --
 ALTER TABLE `waktu`
-  MODIFY `id_waktu` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=56;
+  MODIFY `id_waktu` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=113;
 
 --
 -- Constraints for dumped tables
