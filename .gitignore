@@ -3,3 +3,9 @@ backend/__pycache__/
 
 #result jadwal 
 backend/results/
+
+# Python
+test/__pycache__/
+
+#result jadwal 
+test/results/
